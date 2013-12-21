@@ -1,30 +1,57 @@
-import Battery
-import Window
-
-import Control.Monad
+import Control.Monad.State
 import Control.Concurrent
+import System.Libnotify
 import Data.Maybe
+import Battery
 
-printStatus :: IO ()
-printStatus = do
-  (dpy, dftl, scr) <- windowInit
-  time <- runBatt
-  let compute = isJust time && not (isNaN . fromJust $ time)
-      real_time = fromJust time
-  if compute
-      then putStrLn $ "Battery Time " ++ show (minutes $ floor real_time)
-      else putStrLn $ "No Battery Time"
-  if compute
-      then createWarningWindow dpy dftl scr
-      else return $ ()
+data Vars = Vars {
+    warned :: Bool,
+    time   :: Maybe Float
+} deriving (Show)
+
+defaultVars = Vars { warned = False, time = Nothing }
+
+notifyTime :: Int
+notifyTime = 300
+
+main :: IO ()
+main = runStateT process defaultVars >> return ()
+--
+-- layer an infinite list of uniques over the IO monad
+--
+
+process :: StateT Vars IO ()
+process = do
+  time <- io $ runBatt
+  setTime time
+  displayWarning
+  io $ threadDelay 6000000
+  process
+
+displayWarning :: StateT Vars IO ()
+displayWarning = do
+  vars <- get
+  let maybeTime = time vars
+      currWarned = warned vars
+      currTime = minutes $ floor (fromJust maybeTime)
+  io $ putStrLn $ show vars
+  if (isNothing maybeTime || currTime > notifyTime) && currWarned == True
+    then do
+      io $ putStrLn "Changing to false"
+      put (vars { warned = False })
+    else put vars
+  if isJust maybeTime && currTime < notifyTime && currWarned == False
+    then do 
+      io $ oneShot "Battery!" ("Time left: " ++ show currTime) "" Nothing
+      put (vars { warned = True })
+    else put vars
   where minutes :: Int -> Int
         minutes x = x `div` 60
 
-loop :: IO ()
-loop = do
-  printStatus
-  threadDelay 6000000
-  loop
+setTime :: Maybe Float -> StateT Vars IO ()
+setTime t = do
+  vars <- get
+  put (vars { time = t })
 
-main :: IO ()
-main = loop
+io :: IO a -> StateT Vars IO a
+io = liftIO

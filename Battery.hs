@@ -68,13 +68,14 @@ readBatteries :: [Files] -> IO (Maybe Float)
 readBatteries bfs = do
   bats <- mapM (readBattery 1e6) (take 3 bfs)
   ac <- haveAc "AC/online"
-  putStrLn $ show bats
   let watts = sum (map power bats)
       time' b = now b / watts
       time = sum $ map time' bats
   return $ if ac
              then Nothing
-             else Just time
+             else if isNaN time
+                 then Nothing
+                 else Just time
 
 runBatt' :: [String] -> IO (Maybe Float)
 runBatt' bfs = do
