@@ -35,16 +35,12 @@ displayWarning = do
       currWarned = warned vars
       currTime = minutes $ floor (fromJust maybeTime)
   io $ putStrLn $ show vars
-  if (isNothing maybeTime || currTime > notifyTime) && currWarned == True
-    then do
+  when ((isNothing maybeTime || currTime > notifyTime) && currWarned == True) $ do
       io $ putStrLn "Changing to false"
       put (vars { warned = False })
-    else put vars
-  if isJust maybeTime && currTime < notifyTime && currWarned == False
-    then do 
+  when (isJust maybeTime && currTime < notifyTime && currWarned == False) $ do
       io $ oneShot "Battery!" ("Time left: " ++ show currTime) "" Nothing
       put (vars { warned = True })
-    else put vars
   where minutes :: Int -> Int
         minutes x = x `div` 60
 
