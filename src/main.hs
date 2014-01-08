@@ -1,6 +1,5 @@
 import Control.Monad.State
 import Control.Concurrent
-import System.Libnotify
 import Data.Maybe
 import Battery
 
@@ -9,6 +8,7 @@ data Vars = Vars {
     time   :: Maybe Float
 } deriving (Show)
 
+defaultVars :: Vars
 defaultVars = Vars { warned = False, time = Nothing }
 
 notifyTime :: Int
@@ -22,8 +22,8 @@ main = runStateT process defaultVars >> return ()
 
 process :: StateT Vars IO ()
 process = do
-  time <- io $ runBatt
-  setTime time
+  battTime <- io $ runBatt
+  setTime battTime
   displayWarning
   io $ threadDelay 6000000
   process
