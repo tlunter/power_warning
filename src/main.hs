@@ -34,7 +34,6 @@ displayWarning = do
   let maybeTime = time vars
       currWarned = warned vars
       currTime = minutes $ floor (fromJust maybeTime)
-  io $ putStrLn $ show vars
   when ((isNothing maybeTime || currTime > notifyTime) && currWarned == True) $
       put (vars { warned = False })
   when (isJust maybeTime && currTime < notifyTime && currWarned == False) $
