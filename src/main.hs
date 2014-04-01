@@ -1,18 +1,25 @@
 import Control.Monad.State
 import Control.Concurrent
+import System.Libnotify
 import Data.Maybe
 import Battery
 
+data WarningLevel = VeryLowWarning | LowWarning | NoWarning
+    deriving (Show, Eq, Ord)
+
 data Vars = Vars {
-    warned :: Bool,
+    warned :: WarningLevel,
     time   :: Maybe Float
 } deriving (Show)
 
 defaultVars :: Vars
-defaultVars = Vars { warned = False, time = Nothing }
+defaultVars = Vars { warned = NoWarning, time = Nothing }
 
 notifyTime :: Int
-notifyTime = 300
+notifyTime = 30
+
+severeNotifyTime :: Int
+severeNotifyTime = 10
 
 main :: IO ()
 main = runStateT process defaultVars >> return ()
@@ -34,10 +41,14 @@ displayWarning = do
   let maybeTime = time vars
       currWarned = warned vars
       currTime = minutes $ floor (fromJust maybeTime)
-  when ((isNothing maybeTime || currTime > notifyTime) && currWarned == True) $
-      put (vars { warned = False })
-  when (isJust maybeTime && currTime < notifyTime && currWarned == False) $
-      put (vars { warned = True })
+  when ((isNothing maybeTime || currTime > notifyTime) && (currWarned < NoWarning)) $
+      put (vars { warned = NoWarning })
+  when (isJust maybeTime && currTime < notifyTime && currWarned > LowWarning) $ do
+      io $ oneShot "Alert!" "Your battery life is getting low" "" Nothing
+      put (vars { warned = LowWarning })
+  when (isJust maybeTime && currTime < severeNotifyTime && currWarned > VeryLowWarning) $ do
+      io $ oneShot "Alert!" "Your battery life is getting VERY low" "" Nothing
+      put (vars { warned = VeryLowWarning })
   where minutes :: Int -> Int
         minutes x = x `div` 60
 
